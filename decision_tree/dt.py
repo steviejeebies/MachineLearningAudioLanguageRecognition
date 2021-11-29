@@ -3,6 +3,9 @@
 ## https://www.rockyourcode.com/write-your-own-cross-validation-function-with-make-scorer-in-scikit-learn/
 ## https://mljar.com/blog/visualize-decision-tree/
 
+### I've separated all the parts of model creation into different sections. If you want to run a section
+### this run, then just uncomment it. The only code that is commented-out because it will cause problems
+### comes with a warning, you won't miss it.
 
 import numpy as np
 import pandas as pd
@@ -10,28 +13,25 @@ import matplotlib.pyplot as plt
 
 # Model
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.tree import plot_tree
 from sklearn.dummy import DummyClassifier
+from sklearn.multiclass import OneVsRestClassifier
 
 # Cross Validation / Evaluation
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
-from sklearn.metrics import multilabel_confusion_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import make_scorer
 import sklearn.metrics as metrics
 
 from sklearn.preprocessing import PolynomialFeatures
-# from sklearn.linear_model import LogisticRegression
-# from sklearn.model_selection import KFold
 
 # For naming any files we may need to export
 from datetime import datetime
 import os
+
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -45,6 +45,7 @@ def showAndSave(filename, plt):
         orientation='portrait', format=None,
         transparent=False, bbox_inches=None, pad_inches=0.1,
         metadata=None)
+    plt.show()
 
 def saveCrossEvalAUCResults(this_score_dict, x_axis_values, x_axis_graph_string) :
     plt.errorbar(x_axis_values,this_score_dict['auc']['mean'],yerr=this_score_dict['auc']['std'])
@@ -82,12 +83,15 @@ def fresh_score_dict():
 
 ################# DUMMY CLASSIFIER #################
 ## Although the different strategies for DummyClassifiers take different approaches
-## for how they predict their values, all the strategies produced identical results
+## for how they make their predictions, all the strategies produced identical results
 ## when modelled on this dataset (with the exception of stratefied, which performed
 # very slightly better on some classes and very slightly worse on others, when compared
-# with the other dummy classifier strategies)
+# with the other dummy classifier strategies).
 strategy = 'most_frequent'
 dummy_classifier = DummyClassifier(strategy=strategy)
+
+
+################# GETTING DATA #################
 
 # import dataset
 data_set = pd.read_csv("../Datasets/voice_dataset_8_languages.csv", header=0, dtype="float")
@@ -126,7 +130,7 @@ CV_max_depth = range(1, 15)
 clf = DecisionTreeClassifier(random_state=0)
 path = clf.cost_complexity_pruning_path(feature_data, label_data)
 CV_ccp_alphas = path.ccp_alphas
-CV_ccp_alphas = list(filter(lambda x : x > 0, CV_ccp_alphas))
+CV_ccp_alphas = list(filter(lambda x : x > 0, CV_ccp_alphas))   # filtering out all the ccp_alphas values that were 0
 CV_ccp_alphas = CV_ccp_alphas[::5]       # this returns a massive number of values, many are very similar. We'll get a representative subset of these
 CV_ccp_alphas = CV_ccp_alphas[:-2]       # Need to remove last two values of the above set, since they produce trees that are far too poor to be useful, and mess up the axis of the graph
 
@@ -174,15 +178,15 @@ scoring = {'accuracy': 'accuracy',
 
 score_dict = fresh_score_dict()
 
-################# CROSS VALIDATION #################
+################# CROSS VALIDATION, EACH HYPERPARAMETER #################
 #### Important note;
-# In the definition of the for-loop on the next line, you need to replace both the
-# variable (that starts with TEST_) and the list (that starts with CV_) with the parameter
-# you actually want to check this run. You also need to change the relevant parameter in the 
-# decision tree classifier, just below it. Finally, below this for-loop, uncomment
-# the relevant function call for this parameter.
+## In the definition of the for-loop on the next line, you need to replace both the
+## variable (that starts with TEST_) and the list (that starts with CV_) with the parameter
+## you actually want to check this run. You also need to change the relevant parameter in the 
+## decision tree classifier, just below it. Finally, below this for-loop, uncomment
+## the relevant function call for this parameter.
 
-# for TEST_ccp_alphas in CV_ccp_alphas:
+# for TEST_ccp_alpha in CV_ccp_alphas:
 #     # Creating model:
 #     decision_tree_classifier = DecisionTreeClassifier(
 #         criterion = criterion,
@@ -193,7 +197,7 @@ score_dict = fresh_score_dict()
 #         random_state = random_state,
 #         max_leaf_nodes = max_leaf_nodes,
 #         class_weight = class_weight,
-#         ccp_alpha = TEST_ccp_alphas
+#         ccp_alpha = TEST_ccp_alpha
 #     )
 
 #     scores = cross_validate(decision_tree_classifier, feature_data, label_data, cv=5, scoring=scoring)
@@ -219,11 +223,10 @@ score_dict = fresh_score_dict()
 # saveCrossEvalAUCResults(score_dict, CV_max_depth, 'Max Depth of Tree')
 # saveCrossEvalAUCResults(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
 
-# Useless features to graph:
-# saveCrossEvalAUCResults(score_dict, CV_max_leaf_nodes, 'Max Leaf Nodes')
-# saveCrossEvalAUCResults(score_dict, CV_criterion, 'Entropy')
 
-# # Base version of Decision Tree
+################# CROSS VALIDATION, COMBINED HYPERPARAMETERS #################
+# ## Gives us the best value for all parameters, when combined.
+# ## Base version of Decision Tree
 # dt_base = DecisionTreeClassifier()
 
 # dt_parameter_grid = {
@@ -235,9 +238,9 @@ score_dict = fresh_score_dict()
 
 # # Testing values for parameters as defined in dt_parameter_grid. This creates a new model
 # random = RandomizedSearchCV(estimator = dt_base, param_distributions = dt_parameter_grid, 
-#                                n_iter = 500, 
+#                                n_iter = 1500, 
 #                                cv = 5, 
-#                                verbose = 2, 
+#                                verbose = 0, 
 #                                random_state = 1, 
 #                                n_jobs = -1      # run in parallel
 #                            )
@@ -247,41 +250,42 @@ score_dict = fresh_score_dict()
 # # Get the best parameters produced
 # print(random.best_params_)
 
-# The following is the Decision Tree that uses the best parameters as 
-# determined by a RandomizedSearchCV() run at 500 iterations:
+################# EVALUATION, COMPARISON OF TREES #################
 
-postpruned_decision_tree_classifier = DecisionTreeClassifier(
+# The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
+pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
         max_depth = 10,
         min_samples_leaf = 23,
         max_features = 30,
         class_weight = 'balanced'
     )
 
-prepruned_decision_tree_classifier = DecisionTreeClassifier(
-    ccp_alpha = 0.00236
+# The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
+post_pruned_decision_tree_classifier = DecisionTreeClassifier(
+    ccp_alpha = 0.00396237028052095
 )
 
-from sklearn.preprocessing import label_binarize
-binarized_label = label_binarize(label_data, classes=classes)
+# from sklearn.preprocessing import label_binarize
+# binarized_label = label_binarize(label_data, classes=classes)
 
-# Just considering one split now, we've already done the k-Fold work
-Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
+# # Just considering one split now, we've already done the k-Fold work
+# Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
 
-# OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
-prepruning_one_vs_rest = OneVsRestClassifier(postpruned_decision_tree_classifier)
-postpruning_one_vs_rest = OneVsRestClassifier(prepruned_decision_tree_classifier)
-dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
+# # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
+# prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
+# postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
+# dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-y_score_pre     = prepruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
-y_score_post    = postpruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
-y_score_dummy   = dummy_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+# y_score_pre     = prepruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+# y_score_post    = postpruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+# y_score_dummy   = dummy_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
 
-cmap = plt.cm.get_cmap('hsv', num_classes)
+# cmap = plt.cm.get_cmap('tab10', num_classes)
 
-graphs_iter = zip(
-    ["Pre-Pruning Decision Tree", "Post-Pruning Decision Tree", "Dummy"], 
-    [y_score_pre, y_score_post, y_score_dummy]
-)
+# graphs_iter = zip(
+#     ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "Dummy ROC"], 
+#     [y_score_pre, y_score_post, y_score_dummy]
+# )
 
 # for graph_name, score in graphs_iter:
 #     fp = {}; tp = {}; auc_val = {}
@@ -294,64 +298,79 @@ graphs_iter = zip(
 #     plt.ylabel('True Positive Rate')
 #     plt.title('ROC Graph for {}'.format(graph_name))
 #     plt.legend(loc="lower right")
-#     plt.show()
+#     showAndSave(graph_name, plt)
 
+################# CONFUSION MATRICES #################
+
+# # Have to create train/test data again, as last time, the classes were binarized
 X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
 
-postpruned_decision_tree_classifier.fit(X_train, y_train)
-prepruned_decision_tree_classifier.fit(X_train, y_train)
+pre_pruned_decision_tree_classifier.fit(X_train, y_train)
+post_pruned_decision_tree_classifier.fit(X_train, y_train)
 dummy_classifier.fit(X_train, y_train)
 
-titles_options = [
-    ("Pre-Pruned Decision Tree Confusion Matrix", prepruned_decision_tree_classifier),
-    ("Post-Pruned Decision Tree Confusion Matrix", postpruned_decision_tree_classifier),
-]
-for title, classifier in titles_options:
-    disp = ConfusionMatrixDisplay.from_estimator(
-        classifier,
-        X_test,
-        y_test,
-        display_labels=classes,
-        cmap=plt.cm.Blues,
-        normalize='true',
-    )
-    disp.ax_.set_title(title)
+# cm_options = [
+#     ("Post-Pruned Decision Tree Confusion Matrix", post_pruned_decision_tree_classifier),
+#     ("Pre-Pruned Decision Tree Confusion Matrix", pre_pruned_decision_tree_classifier),
+# ]
+# for title, classifier in cm_options:
+#     disp = ConfusionMatrixDisplay.from_estimator(
+#         classifier,
+#         X_test,
+#         y_test,
+#         display_labels=classes,
+#         cmap=plt.cm.Blues,
+#         normalize='true',
+#     )
+#     disp.ax_.set_title(title)
+#     showAndSave(title, plt)
 
-plt.show()
+
 
 ################# FEATURE IMPORTANCE #################
 
-# # This code was borrowed from https://towardsdatascience.com/decision-tree-algorithm-for-multiclass-problems-using-python-6b0ec1183bf5
-# decision_tree_classifier.tree_.compute_feature_importances(normalize=False)
-# feat_imp_dict = dict(zip(feature_names, decision_tree_classifier.feature_importances_))
+# print('FOR PRE-PRUNED TREE')
+# ## This code was borrowed from https://towardsdatascience.com/decision-tree-algorithm-for-multiclass-problems-using-python-6b0ec1183bf5
+# pre_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
+# feat_imp_dict = dict(zip(feature_names, pre_pruned_decision_tree_classifier.feature_importances_))
 # feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
 # feat_imp.rename(columns = {0:'FeatureImportance'}, inplace = True)
 # print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
 
-################# PLOT DECISION TREE #################
-
-# decision_tree_classifier.fit(feature_data, label_data)
-
-# decision_tree_classifier2 = DecisionTreeClassifier(
-#     ccp_alpha = index_cross_eval_value
-# )
-
-# model = prepruned_decision_tree_classifier.fit(feature_data, label_data)
+# print('FOR POST-PRUNED TREE')
+# post_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
+# feat_imp_dict = dict(zip(feature_names, post_pruned_decision_tree_classifier.feature_importances_))
+# feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
+# feat_imp.rename(columns = {0:'FeatureImportance'}, inplace=True)
+# print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
 
 ################# GRAPHING DECISION GRAPH #################
 ## The following requires that Graphviz is installed on your machine and added to the System PATH, 
 ## just installing the Python module for Graphviz is not enough
 ## https://graphviz.org/download/
 
-# from dtreeviz.trees import dtreeviz # remember to load the package
+from dtreeviz.trees import dtreeviz
 
-# viz = dtreeviz(prepruned_decision_tree_classifier,
+viz1 = dtreeviz(post_pruned_decision_tree_classifier,
+                feature_data,
+                label_data,
+                target_name="language",
+                feature_names=feature_names,
+                )
+
+viz1.save("./images/pre_pruned_decision_tree.svg")
+
+## NOTE: This causes an error, and will not print the tree. Seems to be an issue with dtreeviz, 
+## as this call is identical to the previous, but with a different tree used.
+
+# viz2 = dtreeviz(preFORMERLYpostpruned_decision_tree_classifier,
 #                 feature_data,
 #                 label_data,
 #                 target_name="language",
 #                 feature_names=feature_names,
 #                 )
 
-# viz.save("./images/decision_tree.svg")
+# viz2.save("./images/post_pruned_decision_tree.svg")
 
-# plt.show()
+
+
