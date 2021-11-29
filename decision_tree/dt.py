@@ -20,7 +20,8 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import multilabel_confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import make_scorer
 import sklearn.metrics as metrics
 
@@ -249,7 +250,7 @@ score_dict = fresh_score_dict()
 # The following is the Decision Tree that uses the best parameters as 
 # determined by a RandomizedSearchCV() run at 500 iterations:
 
-randomized_search_decision_tree_classifier = DecisionTreeClassifier(
+postpruned_decision_tree_classifier = DecisionTreeClassifier(
         max_depth = 10,
         min_samples_leaf = 23,
         max_features = 30,
@@ -267,13 +268,13 @@ binarized_label = label_binarize(label_data, classes=classes)
 Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
 
 # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
-classifierPrePruning = OneVsRestClassifier(randomized_search_decision_tree_classifier)
-classifierPostPruning = OneVsRestClassifier(prepruned_decision_tree_classifier)
-classifierDummy = OneVsRestClassifier(dummy_classifier)
+prepruning_one_vs_rest = OneVsRestClassifier(postpruned_decision_tree_classifier)
+postpruning_one_vs_rest = OneVsRestClassifier(prepruned_decision_tree_classifier)
+dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-y_score_pre     = classifierPrePruning.fit(Xtrain, ytrain).predict_proba(Xtest)
-y_score_post    = classifierPostPruning.fit(Xtrain, ytrain).predict_proba(Xtest)
-y_score_dummy   = classifierDummy.fit(Xtrain, ytrain).predict_proba(Xtest)
+y_score_pre     = prepruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+y_score_post    = postpruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+y_score_dummy   = dummy_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
 
 cmap = plt.cm.get_cmap('hsv', num_classes)
 
@@ -282,19 +283,40 @@ graphs_iter = zip(
     [y_score_pre, y_score_post, y_score_dummy]
 )
 
-for graph_name, score in graphs_iter:
-    fp = {}; tp = {}; auc_val = {}
-    for i in range(num_classes):
-        fp[i], tp[i], _ = roc_curve(ytest[:, i], score[:, i])
-        auc_val[i] = auc(fp[i], tp[i])
-        
-for i in range(num_classes):
-    plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes[i], auc_val[i]))
+# for graph_name, score in graphs_iter:
+#     fp = {}; tp = {}; auc_val = {}
+#     for i in range(num_classes):
+#         fp[i], tp[i], _ = roc_curve(ytest[:, i], score[:, i])
+#         auc_val[i] = auc(fp[i], tp[i])
+#     for i in range(num_classes):
+#         plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes[i], auc_val[i]))
+#     plt.xlabel('False Positive Rate')
+#     plt.ylabel('True Positive Rate')
+#     plt.title('ROC Graph for {}'.format(graph_name))
+#     plt.legend(loc="lower right")
+#     plt.show()
 
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Graph for {}'.format(graph_name))
-plt.legend(loc="lower right")
+X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
+
+postpruned_decision_tree_classifier.fit(X_train, y_train)
+prepruned_decision_tree_classifier.fit(X_train, y_train)
+dummy_classifier.fit(X_train, y_train)
+
+titles_options = [
+    ("Pre-Pruned Decision Tree Confusion Matrix", prepruned_decision_tree_classifier),
+    ("Post-Pruned Decision Tree Confusion Matrix", postpruned_decision_tree_classifier),
+]
+for title, classifier in titles_options:
+    disp = ConfusionMatrixDisplay.from_estimator(
+        classifier,
+        X_test,
+        y_test,
+        display_labels=classes,
+        cmap=plt.cm.Blues,
+        normalize='true',
+    )
+    disp.ax_.set_title(title)
+
 plt.show()
 
 ################# FEATURE IMPORTANCE #################
