@@ -44,7 +44,7 @@ for (weight, weightName) in weights:
     for k in ks:
         model = KNeighborsClassifier(n_neighbors=k, weights=weight).fit(X, Y)
         score = cross_validate(model, X, Y, cv=cv, scoring=scoring)
-        mean = score['test_auc'].mean()
+        mean = score['test_f1'].mean()
         if mean > maxScore['score']: # todo want want k that maxes score and mins error?
             maxScore = {'score': mean, 'k': k, 'weightsName': weightName, 'weights': weight}
         scores[weight].append({'mean': score['test_f1'].mean(), 'std': score['test_f1'].std()})
