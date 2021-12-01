@@ -173,7 +173,7 @@ scoring = {'accuracy': 'accuracy',
            'recall': make_scorer(metrics.recall_score, average=average_param),
            'precision': make_scorer(metrics.precision_score, average=average_param),
            'f1': make_scorer(metrics.f1_score, average=average_param),
-           'auc': make_scorer(metrics.f1_score, average=average_param),
+           'auc': make_scorer(metrics.f1_score, average=average_param), # todo should this not be metrics.auc or something?
            }
 
 score_dict = fresh_score_dict()
