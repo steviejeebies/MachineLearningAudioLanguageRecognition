@@ -51,7 +51,7 @@ def gaussian(distances):
 
 def showAndSave(filename, plt):
     import os
-    filename = os.path.dirname(__file__) + '\\images\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
+    filename = os.path.dirname(__file__) + '\\images2\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
     plt.savefig("{}.png".format(filename), dpi=None, facecolor='w', edgecolor='w',
         orientation='portrait', format=None,
         transparent=False, bbox_inches=None, pad_inches=0.1,
@@ -61,6 +61,7 @@ def showAndSave(filename, plt):
 def saveCrossEvalF1Results(this_score_dict, x_axis_values, x_axis_graph_string) :
     plt.errorbar(x_axis_values, this_score_dict['f1']['mean'],yerr=this_score_dict['f1']['std'])
     plt.xlabel(x_axis_graph_string); plt.ylabel('F1 Value')
+    plt.title("{} Cross Validation".format(x_axis_graph_string))
     max_val = max(this_score_dict['f1']['mean'])
     max_index = this_score_dict['f1']['mean'].index(max_val)
     index_cross_eval_value = x_axis_values[max_index]
@@ -137,7 +138,7 @@ def fresh_score_dict():
 ## when modelled on this dataset (with the exception of stratefied, which performed
 # very slightly better on some classes and very slightly worse on others, when compared
 # with the other dummy classifier strategies).
-strategy = 'most_frequent'
+strategy = 'stratified'
 dummy_classifier = DummyClassifier(strategy=strategy)
 
 ################# GETTING DATA #################
@@ -177,9 +178,9 @@ ccp_alpha = 0.0             # Using default value for the moment (0.0). Complexi
 
 ################# HYPERPARAMETERS WE'RE CONSIDERING #################
 #### For Pre-Pruning Approach:
-CV_min_samples_leaf = range(1, 30)
+CV_min_samples_leaf = range(1, 50)
 CV_max_features = [1, 5, 10, 15, 20, 25, 30, 35, 40, 46]   # 46 features total
-CV_max_depth = range(1, 15)
+CV_max_depth = range(1, 20)
 # CV_criterion = ['gini', 'entropy']    # Had no impact
 # CV_max_leaf_nodes = range(1, 20)      # This parameter turned out to be useless - anything below 10, terrible results, but anything above 10, all equal. The default for this parameter will use the latter behaviour
 
@@ -237,13 +238,13 @@ score_dict = fresh_score_dict()
 ## decision tree classifier, just below it. Finally, below this for-loop, uncomment
 ## the relevant function call for this parameter.
 
-for TEST_ccp_alphas in CV_ccp_alphas:
+for TEST_min_samples_leaf in CV_min_samples_leaf:
     # Creating model:
     decision_tree_classifier = DecisionTreeClassifier(
         criterion = criterion,
         splitter = splitter,
         max_depth = max_depth,
-        min_samples_leaf = min_samples_leaf,
+        min_samples_leaf = TEST_min_samples_leaf,
         max_features = max_features,
         random_state = random_state,
         max_leaf_nodes = max_leaf_nodes,
@@ -268,16 +269,16 @@ for TEST_ccp_alphas in CV_ccp_alphas:
     # # score_dict['auc']['mean'].append(scores['test_auc'].mean())
     # # score_dict['auc']['std'].append(scores['test_auc'].std())
 
-#### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
-# saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
+# #### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
+saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
 # saveCrossEvalF1Results(score_dict, CV_max_features, 'Max Features Used')
 # saveCrossEvalF1Results(score_dict, CV_max_depth, 'Max Depth of Tree')
 # saveCrossEvalF1Results(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
 
 
 ################# CROSS VALIDATION, COMBINED HYPERPARAMETERS #################
-# ## Gives us the best value for all parameters, when combined.
-# ## Base version of Decision Tree
+## Gives us the best value for all parameters, when combined.
+## Base version of Decision Tree
 # dt_base = DecisionTreeClassifier()
 
 # dt_parameter_grid = {
@@ -289,7 +290,7 @@ for TEST_ccp_alphas in CV_ccp_alphas:
 
 # # Testing values for parameters as defined in dt_parameter_grid. This creates a new model
 # random = RandomizedSearchCV(estimator = dt_base, param_distributions = dt_parameter_grid, 
-#                                n_iter = 1500, 
+#                                n_iter = 2500, 
 #                                cv = 5, 
 #                                verbose = 0, 
 #                                random_state = 1, 
@@ -303,26 +304,26 @@ for TEST_ccp_alphas in CV_ccp_alphas:
 
 ################# EVALUATION, COMPARISON OF TREES #################
 
-# # The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
+# The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
 # pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
-#         max_depth = 10,
-#         min_samples_leaf = 23,
+#         max_depth = 11,
+#         min_samples_leaf = 19,
 #         max_features = 30,
 #         class_weight = 'balanced'
 #     )
 
-# # The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
+# The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
 # post_pruned_decision_tree_classifier = DecisionTreeClassifier(
-#     ccp_alpha = 0.003176294191919192
+#     ccp_alpha = 0.003297820403168658
 # )
 
 # binarized_label_data = LabelBinarizer().fit_transform(label_data)
 # binarized_label_test = LabelBinarizer().fit_transform(label_test)
 
-# # # Just considering one split now, we've already done the k-Fold work
-# # Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
+# # Just considering one split now, we've already done the k-Fold work
+# Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
 
-# # # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
+# # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
 # prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
 # postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
 # knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
@@ -377,22 +378,25 @@ for TEST_ccp_alphas in CV_ccp_alphas:
 
 ################# CONFUSION MATRICES #################
 
-# # Have to create train/test data again, as last time, the classes were binarized
+# Have to create train/test data again, as last time, the classes were binarized
 # X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
 
-# pre_pruned_decision_tree_classifier.fit(feature_test, label_test)
-# post_pruned_decision_tree_classifier.fit(feature_test, label_test)
-# dummy_classifier.fit(feature_test, label_test)
+# pre_pruned_decision_tree_classifier.fit(feature_data, label_data)
+# post_pruned_decision_tree_classifier.fit(feature_data, label_data)
+# knn_classifier.fit(feature_data, label_data)
+# dummy_classifier.fit(feature_data, label_data)
 
 # cm_options = [
 #     ("Post-Pruned Decision Tree Confusion Matrix", post_pruned_decision_tree_classifier),
 #     ("Pre-Pruned Decision Tree Confusion Matrix", pre_pruned_decision_tree_classifier),
+#     ("KNN Confusion Matrix", knn_classifier),
+#     ("Dummy Classifier Confusion Matrix", dummy_classifier),
 # ]
 # for title, classifier in cm_options:
 #     disp = ConfusionMatrixDisplay.from_estimator(
 #         classifier,
-#         X_test,
-#         y_test,
+#         feature_test,
+#         label_test,
 #         display_labels=classes_lang_names,
 #         cmap=plt.cm.Blues,
 #         normalize='true',
@@ -426,26 +430,24 @@ for TEST_ccp_alphas in CV_ccp_alphas:
 
 # from dtreeviz.trees import dtreeviz
 
-# viz1 = dtreeviz(post_pruned_decision_tree_classifier,
+# viz2 = dtreeviz(post_pruned_decision_tree_classifier,
 #                 feature_data,
 #                 label_data,
 #                 target_name="language",
 #                 feature_names=feature_names,
-#                 )
-
-# viz1.save("./images/pre_pruned_decision_tree.svg")
-
-## NOTE: This causes an error, and will not print the tree. Seems to be an issue with dtreeviz, 
-## as this call is identical to the previous, but with a different tree used.
-
-# viz2 = dtreeviz(preFORMERLYpostpruned_decision_tree_classifier,
-#                 feature_data,
-#                 label_data,
-#                 target_name="language",
-#                 feature_names=feature_names,
+#                 class_names=classes_lang_names
 #                 )
 
 # viz2.save("./images/post_pruned_decision_tree.svg")
 
+# ## NOTE: This causes an error, and will not print the tree. Seems to be an issue with dtreeviz, 
+# ## as this call is identical to the previous, but with a different tree used.
+# # viz1 = dtreeviz(pre_pruned_decision_tree_classifier,
+# #                 feature_data,
+# #                 label_data,
+# #                 target_name="language",
+# #                 feature_names=feature_names,
+# #                 class_names=classes_lang_names
+# #                 )
 
-
+# # viz1.save("./images/pre_pruned_decision_tree.svg")
