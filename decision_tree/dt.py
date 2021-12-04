@@ -58,13 +58,13 @@ def showAndSave(filename, plt):
         metadata=None)
     plt.show()
 
-def saveCrossEvalAUCResults(this_score_dict, x_axis_values, x_axis_graph_string) :
-    plt.errorbar(x_axis_values,this_score_dict['auc']['mean'],yerr=this_score_dict['auc']['std'])
-    plt.xlabel(x_axis_graph_string); plt.ylabel('AUC Value')
-    max_val = max(this_score_dict['auc']['mean'])
-    max_index = this_score_dict['auc']['mean'].index(max_val)
+def saveCrossEvalF1Results(this_score_dict, x_axis_values, x_axis_graph_string) :
+    plt.errorbar(x_axis_values,this_score_dict['f1']['mean'],yerr=this_score_dict['f1']['std'])
+    plt.xlabel(x_axis_graph_string); plt.ylabel('F1 Value')
+    max_val = max(this_score_dict['f1']['mean'])
+    max_index = this_score_dict['f1']['mean'].index(max_val)
     index_cross_eval_value = x_axis_values[max_index]
-    print("HIGHEST AUC VAL = {} AT CROSS_EVAL_VALUE = {}".format(max_val, index_cross_eval_value))
+    print("HIGHEST F1 VAL = {} AT CROSS_EVAL_VALUE = {}".format(max_val, index_cross_eval_value))
     pp.pprint(this_score_dict)
     showAndSave(x_axis_graph_string, plt)
 
@@ -224,7 +224,7 @@ scoring = {'accuracy': 'accuracy',
            'recall': make_scorer(metrics.recall_score, average=average_param),
            'precision': make_scorer(metrics.precision_score, average=average_param),
            'f1': make_scorer(metrics.f1_score, average=average_param),
-           'auc': make_scorer(metrics.f1_score, average=average_param), # todo should this not be metrics.auc or something?
+           'auc': make_scorer(metrics.auc_score, average=average_param),
            }
 
 score_dict = fresh_score_dict()
@@ -237,39 +237,39 @@ score_dict = fresh_score_dict()
 ## decision tree classifier, just below it. Finally, below this for-loop, uncomment
 ## the relevant function call for this parameter.
 
-# for TEST_ccp_alpha in CV_ccp_alphas:
-#     # Creating model:
-#     decision_tree_classifier = DecisionTreeClassifier(
-#         criterion = criterion,
-#         splitter = splitter,
-#         max_depth = max_depth,
-#         min_samples_leaf = min_samples_leaf,
-#         max_features = max_features,
-#         random_state = random_state,
-#         max_leaf_nodes = max_leaf_nodes,
-#         class_weight = class_weight,
-#         ccp_alpha = TEST_ccp_alpha
-#     )
+for TEST_ccp_alpha in CV_ccp_alphas:
+    # Creating model:
+    decision_tree_classifier = DecisionTreeClassifier(
+        criterion = criterion,
+        splitter = splitter,
+        max_depth = max_depth,
+        min_samples_leaf = min_samples_leaf,
+        max_features = max_features,
+        random_state = random_state,
+        max_leaf_nodes = max_leaf_nodes,
+        class_weight = class_weight,
+        ccp_alpha = TEST_ccp_alpha
+    )
 
-#     scores = cross_validate(decision_tree_classifier, feature_data, label_data, cv=5, scoring=scoring)
+    scores = cross_validate(decision_tree_classifier, feature_data, label_data, cv=5, scoring=scoring)
 
-#     score_dict['accuracy']['mean'].append(scores['test_accuracy'].mean())
-#     score_dict['accuracy']['std'].append(scores['test_accuracy'].std())
+    score_dict['accuracy']['mean'].append(scores['test_accuracy'].mean())
+    score_dict['accuracy']['std'].append(scores['test_accuracy'].std())
 
-#     score_dict['recall']['mean'].append(scores['test_recall'].mean())
-#     score_dict['recall']['std'].append(scores['test_recall'].std())
+    score_dict['recall']['mean'].append(scores['test_recall'].mean())
+    score_dict['recall']['std'].append(scores['test_recall'].std())
 
-#     score_dict['precision']['mean'].append(scores['test_precision'].mean())
-#     score_dict['precision']['std'].append(scores['test_precision'].std())
+    score_dict['precision']['mean'].append(scores['test_precision'].mean())
+    score_dict['precision']['std'].append(scores['test_precision'].std())
 
-#     score_dict['f1']['mean'].append(scores['test_f1'].mean())
-#     score_dict['f1']['std'].append(scores['test_f1'].std())
+    score_dict['f1']['mean'].append(scores['test_f1'].mean())
+    score_dict['f1']['std'].append(scores['test_f1'].std())
 
-#     score_dict['auc']['mean'].append(scores['test_auc'].mean())
-#     score_dict['auc']['std'].append(scores['test_auc'].std())
+    score_dict['auc']['mean'].append(scores['test_auc'].mean())
+    score_dict['auc']['std'].append(scores['test_auc'].std())
 
-##### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
-# saveCrossEvalAUCResults(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
+#### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
+saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
 # saveCrossEvalAUCResults(score_dict, CV_max_features, 'Max Features Used')
 # saveCrossEvalAUCResults(score_dict, CV_max_depth, 'Max Depth of Tree')
 # saveCrossEvalAUCResults(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
@@ -304,76 +304,76 @@ score_dict = fresh_score_dict()
 ################# EVALUATION, COMPARISON OF TREES #################
 
 # # The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
-pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
-        max_depth = 10,
-        min_samples_leaf = 23,
-        max_features = 30,
-        class_weight = 'balanced'
-    )
+# pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
+#         max_depth = 10,
+#         min_samples_leaf = 23,
+#         max_features = 30,
+#         class_weight = 'balanced'
+#     )
 
-# The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
-post_pruned_decision_tree_classifier = DecisionTreeClassifier(
-    ccp_alpha = 0.003176294191919192
-)
+# # The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
+# post_pruned_decision_tree_classifier = DecisionTreeClassifier(
+#     ccp_alpha = 0.003176294191919192
+# )
 
-binarized_label_data = LabelBinarizer().fit_transform(label_data)
-binarized_label_test = LabelBinarizer().fit_transform(label_test)
+# binarized_label_data = LabelBinarizer().fit_transform(label_data)
+# binarized_label_test = LabelBinarizer().fit_transform(label_test)
 
-# # Just considering one split now, we've already done the k-Fold work
-# Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
+# # # Just considering one split now, we've already done the k-Fold work
+# # Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
 
-# # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
-prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
-postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
-knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
-knn_one_vs_rest = OneVsRestClassifier(knn_classifier)
-dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
+# # # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
+# prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
+# postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
+# knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
+# knn_one_vs_rest = OneVsRestClassifier(knn_classifier)
+# dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-y_score_pre = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-y_score_post = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-y_score_knn = knn_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-y_score_dummy = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+# y_score_pre = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+# y_score_post = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+# y_score_knn = knn_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+# y_score_dummy = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 
-cmap = plt.cm.get_cmap('tab10', num_classes+2)
+# cmap = plt.cm.get_cmap('tab10', num_classes+2)
 
-graphs_iter = zip(
-    ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "kNN ROC", "Dummy ROC"],
-    [y_score_pre, y_score_post, y_score_knn, y_score_dummy]
-)
+# graphs_iter = zip(
+#     ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "kNN ROC", "Dummy ROC"],
+#     [y_score_pre, y_score_post, y_score_knn, y_score_dummy]
+# )
 
-# This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
-# (i.e. the graph shows the ROC for each language separately), or together (for comparing the
-# different models, using micro-average). It is used in the following for-loop
-draw_each_model_separate = False
+# # This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
+# # (i.e. the graph shows the ROC for each language separately), or together (for comparing the
+# # different models, using micro-average). It is used in the following for-loop
+# draw_each_model_separate = False
 
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
+# plt.xlabel('False Positive Rate')
+# plt.ylabel('True Positive Rate')
 
-cmap_index = 0
+# cmap_index = 0
 
-for graph_name, score in graphs_iter:
-    fp = {}; tp = {}; auc_val = {}
-    for i in range(num_classes):
-        fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
-        auc_val[i] = auc(fp[i], tp[i])
+# for graph_name, score in graphs_iter:
+#     fp = {}; tp = {}; auc_val = {}
+#     for i in range(num_classes):
+#         fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
+#         auc_val[i] = auc(fp[i], tp[i])
 
-    if draw_each_model_separate:
-        for i in range(num_classes):
-            plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('ROC Graph for {}'.format(graph_name))
-        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=num_classes)
-        plt.legend(loc="lower right")
-        showAndSave(graph_name, plt)
-    else:
-        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=cmap_index, micro_only=True, label_name=graph_name)
-        cmap_index = cmap_index + 1
+#     if draw_each_model_separate:
+#         for i in range(num_classes):
+#             plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
+#         plt.xlabel('False Positive Rate')
+#         plt.ylabel('True Positive Rate')
+#         plt.title('ROC Graph for {}'.format(graph_name))
+#         generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=num_classes)
+#         plt.legend(loc="lower right")
+#         showAndSave(graph_name, plt)
+#     else:
+#         generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=cmap_index, micro_only=True, label_name=graph_name)
+#         cmap_index = cmap_index + 1
 
-if not draw_each_model_separate:
-    plt.title('ROC Graph Evaluation')
-    plt.legend(loc="lower right")
-    showAndSave(graph_name, plt)
+# if not draw_each_model_separate:
+#     plt.title('ROC Graph Evaluation')
+#     plt.legend(loc="lower right")
+#     showAndSave(graph_name, plt)
 
 ################# CONFUSION MATRICES #################
 
