@@ -7,6 +7,9 @@
 ### this run, then just uncomment it. The only code that is commented-out because it will cause problems
 ### comes with a warning, you won't miss it.
 
+def funcHello():
+    print("Hello!")
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -351,11 +354,11 @@ for graph_name, score in graphs_iter:
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.title('ROC Graph for {}'.format(graph_name))
-        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, num_classes-1)
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=num_classes)
         plt.legend(loc="lower right")
         showAndSave(graph_name, plt)
     else:
-        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_index, micro_only=True, label_name=graph_name)
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=cmap_index, micro_only=True, label_name=graph_name)
         cmap_index = cmap_index + 1
 
 if not draw_each_model_separate:
