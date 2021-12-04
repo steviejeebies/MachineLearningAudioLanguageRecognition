@@ -59,7 +59,7 @@ def showAndSave(filename, plt):
     plt.show()
 
 def saveCrossEvalF1Results(this_score_dict, x_axis_values, x_axis_graph_string) :
-    plt.errorbar(x_axis_values,this_score_dict['f1']['mean'],yerr=this_score_dict['f1']['std'])
+    plt.errorbar(x_axis_values, this_score_dict['f1']['mean'],yerr=this_score_dict['f1']['std'])
     plt.xlabel(x_axis_graph_string); plt.ylabel('F1 Value')
     max_val = max(this_score_dict['f1']['mean'])
     max_index = this_score_dict['f1']['mean'].index(max_val)
@@ -224,7 +224,7 @@ scoring = {'accuracy': 'accuracy',
            'recall': make_scorer(metrics.recall_score, average=average_param),
            'precision': make_scorer(metrics.precision_score, average=average_param),
            'f1': make_scorer(metrics.f1_score, average=average_param),
-           'auc': make_scorer(metrics.auc_score, average=average_param),
+            # 'auc': make_scorer(metrics.roc_auc_score, multi_class='ovo'),
            }
 
 score_dict = fresh_score_dict()
@@ -237,7 +237,7 @@ score_dict = fresh_score_dict()
 ## decision tree classifier, just below it. Finally, below this for-loop, uncomment
 ## the relevant function call for this parameter.
 
-for TEST_ccp_alpha in CV_ccp_alphas:
+for TEST_ccp_alphas in CV_ccp_alphas:
     # Creating model:
     decision_tree_classifier = DecisionTreeClassifier(
         criterion = criterion,
@@ -248,7 +248,7 @@ for TEST_ccp_alpha in CV_ccp_alphas:
         random_state = random_state,
         max_leaf_nodes = max_leaf_nodes,
         class_weight = class_weight,
-        ccp_alpha = TEST_ccp_alpha
+        ccp_alpha = ccp_alpha
     )
 
     scores = cross_validate(decision_tree_classifier, feature_data, label_data, cv=5, scoring=scoring)
@@ -265,14 +265,14 @@ for TEST_ccp_alpha in CV_ccp_alphas:
     score_dict['f1']['mean'].append(scores['test_f1'].mean())
     score_dict['f1']['std'].append(scores['test_f1'].std())
 
-    score_dict['auc']['mean'].append(scores['test_auc'].mean())
-    score_dict['auc']['std'].append(scores['test_auc'].std())
+    # # score_dict['auc']['mean'].append(scores['test_auc'].mean())
+    # # score_dict['auc']['std'].append(scores['test_auc'].std())
 
 #### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
-saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
-# saveCrossEvalAUCResults(score_dict, CV_max_features, 'Max Features Used')
-# saveCrossEvalAUCResults(score_dict, CV_max_depth, 'Max Depth of Tree')
-# saveCrossEvalAUCResults(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
+# saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
+# saveCrossEvalF1Results(score_dict, CV_max_features, 'Max Features Used')
+# saveCrossEvalF1Results(score_dict, CV_max_depth, 'Max Depth of Tree')
+# saveCrossEvalF1Results(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
 
 
 ################# CROSS VALIDATION, COMBINED HYPERPARAMETERS #################
