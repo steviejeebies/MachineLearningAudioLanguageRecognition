@@ -20,6 +20,7 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
 from sklearn.metrics import ConfusionMatrixDisplay
@@ -57,6 +58,45 @@ def saveCrossEvalAUCResults(this_score_dict, x_axis_values, x_axis_graph_string)
     print("HIGHEST AUC VAL = {} AT CROSS_EVAL_VALUE = {}".format(max_val, index_cross_eval_value))
     pp.pprint(this_score_dict)
     showAndSave(x_axis_graph_string, plt)
+
+# Much of the following function for generating macro and micro average ROC graphs
+# was borrowed from https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
+def generateMicroMacroAverageROCGraph(true, predicted, fp, tp, cmap, cmap_start_index, micro_only=False, label_name=''):
+    fp_micro, tp_micro, _ = roc_curve(true.ravel(), predicted.ravel())
+    auc_val_micro = auc(fp_micro, tp_micro)
+
+    all_fpr = np.unique(
+        np.concatenate([fp[i] for i in range(num_classes)])
+    )
+
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(num_classes):
+        mean_tpr += np.interp(all_fpr, fp[i], tp[i])
+
+    mean_tpr /= num_classes
+
+    fp_macro = all_fpr
+    tp_macro = mean_tpr
+    auc_val_macro = auc(fp_macro, tp_macro)
+
+    plt.plot(
+        fp_micro,
+        tp_micro,
+        label="{1} Micro-Average (area = {0:0.2f})".format(auc_val_micro, label_name),
+        color=cmap(cmap_start_index),
+        linestyle=":",
+        linewidth=3,
+    )
+
+    if not micro_only:
+        plt.plot(
+            fp_macro,
+            tp_macro,
+            label="{1} Macro-Average (area = {0:0.2f})".format(auc_val_macro, label_name),
+            color=cmap(cmap_start_index+1),
+            linestyle=":",
+            linewidth=3,
+        )
 
 def fresh_score_dict():
     return {
@@ -267,19 +307,8 @@ post_pruned_decision_tree_classifier = DecisionTreeClassifier(
     ccp_alpha = 0.003176294191919192
 )
 
-from sklearn.preprocessing import LabelBinarizer
-
-lb1 = LabelBinarizer()
-lb2 = LabelBinarizer()
-# y_test_binarize = lb.fit_transform(label_data)
-# y_test_original = lb.inverse_transform(label_test)
-
-binarized_label_data = lb1.fit_transform(label_data)
-binarized_label_test = lb2.fit_transform(label_test)
-# binarized_label_data = label_binarize(label_data, classes=classes)
-# binarized_label_test = label_binarize(label_test, classes=classes)
-
-
+binarized_label_data = LabelBinarizer().fit_transform(label_data)
+binarized_label_test = LabelBinarizer().fit_transform(label_test)
 
 # # Just considering one split now, we've already done the k-Fold work
 # Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
@@ -293,64 +322,45 @@ y_score_pre     = prepruning_one_vs_rest.fit(feature_data, binarized_label_data)
 y_score_post    = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 y_score_dummy   = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 
-cmap = plt.cm.get_cmap('tab10', num_classes)
+cmap = plt.cm.get_cmap('tab10', num_classes+2)
 
 graphs_iter = zip(
     ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "Dummy ROC"], 
     [y_score_pre, y_score_post, y_score_dummy]
 )
 
+# This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
+# (i.e. the graph shows the ROC for each language separately), or together (for comparing the
+# different models, using micro-average). It is used in the following for-loop
+draw_each_model_separate = True
+
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+
+cmap_index = 0
+
 for graph_name, score in graphs_iter:
     fp = {}; tp = {}; auc_val = {}
     for i in range(num_classes):
         fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
         auc_val[i] = auc(fp[i], tp[i])
-    for i in range(num_classes):
-        plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC Graph for {}'.format(graph_name))
-    
 
-    delabelized_score = lb2.inverse_transform(score)
-    fp["micro"], tp["micro"], _ = roc_curve(binarized_label_test.ravel(), score.ravel())
-    auc_val["micro"] = auc(fp["micro"], tp["micro"])
+    if draw_each_model_separate:
+        for i in range(num_classes):
+            plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Graph for {}'.format(graph_name))
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, num_classes-1)
+        plt.legend(loc="lower right")
+        showAndSave(graph_name, plt)
+    else:
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_index, micro_only=True, label_name=graph_name)
+        cmap_index = cmap_index + 1
 
-    # First aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fp[i] for i in range(num_classes)]))
-
-    # Then interpolate all ROC curves at this points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(num_classes):
-        mean_tpr += np.interp(all_fpr, fp[i], tp[i])
-
-    # Finally average it and compute AUC
-    mean_tpr /= num_classes
-
-    fp["macro"] = all_fpr
-    tp["macro"] = mean_tpr
-    auc_val["macro"] = auc(fp["macro"], tp["macro"])
-
-    plt.plot(
-        fp["micro"],
-        tp["micro"],
-        label="micro-average ROC curve (area = {0:0.2f})".format(auc_val["micro"]),
-        color="deeppink",
-        linestyle=":",
-        linewidth=4,
-    )
-
-    plt.plot(
-        fp["macro"],
-        tp["macro"],
-        label="macro-average ROC curve (area = {0:0.2f})".format(auc_val["macro"]),
-        color="navy",
-        linestyle=":",
-        linewidth=4,
-    )
-
+if not draw_each_model_separate:
+    plt.title('ROC Graph Evaluation')
     plt.legend(loc="lower right")
-
     showAndSave(graph_name, plt)
 
 ################# CONFUSION MATRICES #################
