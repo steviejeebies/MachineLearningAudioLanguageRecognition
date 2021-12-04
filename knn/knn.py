@@ -4,8 +4,11 @@ import matplotlib.pyplot as plt
 from sklearn import metrics
 from sklearn.dummy import DummyClassifier
 from sklearn.model_selection import train_test_split, cross_validate
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import confusion_matrix, make_scorer
+from sklearn.metrics import confusion_matrix, make_scorer, roc_curve, auc
+from sklearn.preprocessing import LabelBinarizer
+
 
 def printModel(model, X, Y):
     Ypred = model.predict(X)
@@ -69,7 +72,7 @@ for (weight, weightName) in weights:
     plt.xlabel('k')
     plt.ylabel('mean f1 score')
     plt.title('F1 Score by k neighbours for ' + weightName + ' weights')
-    plt.show()
+plt.show()
 
 # graph of some bare feature against the label
 # for i in range(len(X.columns)):

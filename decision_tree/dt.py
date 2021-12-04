@@ -15,6 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Model
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.multiclass import OneVsRestClassifier
@@ -37,15 +38,20 @@ from datetime import datetime
 import os
 
 import pprint
+
 pp = pprint.PrettyPrinter(indent=4)
 
 classes=[1,2,3,4,5,6,7,8]       # Replace this with the name of the languages
 classes_lang_names = ["Arabic", "English", "French", "German", "Hindi", "Mandarin", "Portuguese", "Spanish"]
 num_classes = len(classes)
 
+def gaussian(distances):
+    l = 500
+    return np.exp(-(distances**2)/(2*(l**2)))
+
 def showAndSave(filename, plt):
     import os
-    filename = os.path.dirname(__file__) + '\\images2\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
+    filename = os.path.dirname(__file__) + '\\images\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
     plt.savefig("{}.png".format(filename), dpi=None, facecolor='w', edgecolor='w',
         orientation='portrait', format=None,
         transparent=False, bbox_inches=None, pad_inches=0.1,
@@ -159,12 +165,12 @@ feature_data, feature_test, label_data, label_test = train_test_split(feature_da
 ################# HYPERPARAMETER OPTIONS #################
 # putting them all grouped together here so we don't have to dig through code later
 ### For DecisionTreeModel constructor parameters (https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html)
-criterion = 'gini'      
+criterion = 'gini'
 splitter = 'best'           # 'best' or 'random', best will give consistent results, but 'random' may reveal some important features
 max_depth = None            # 4 seems to be the minimum value that gets perfect scores (for initial data set, not tested on the rest)
-min_samples_leaf = 1        # A leaf will not be created if it has less than this number of samples in it. 
+min_samples_leaf = 1        # A leaf will not be created if it has less than this number of samples in it.
 max_features = None         # Not sure how this parameter chooses the features used, I suspect it's related to pruning the tree
-random_state = None         # Used in conjunction with `max_features`. Regardless of the 'splitter' value, features are always randomly permuted at each split. If the criteria for determining which feature to split on is identical for all, then this randomness determines. We can set to an int for deterministic behaviour for this. 
+random_state = None         # Used in conjunction with `max_features`. Regardless of the 'splitter' value, features are always randomly permuted at each split. If the criteria for determining which feature to split on is identical for all, then this randomness determines. We can set to an int for deterministic behaviour for this.
 max_leaf_nodes = None       # Tree will have no more than this number of leaf nodes total, best-first fashion. None = unliimited leaf nodes.
 class_weight = 'balanced'   # None (all output classes have equal weight) or 'balanced' (ensures the weights of the ouput classes is proportional to their frequency in the y list)
 ccp_alpha = 0.0             # Using default value for the moment (0.0). Complexity parameter used for Minimal Cost-Complexity Pruning. The subtree with the largest cost complexity that is smaller than ccp_alpha will be chosen.
@@ -319,23 +325,26 @@ binarized_label_test = LabelBinarizer().fit_transform(label_test)
 # # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
 prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
 postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
+knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
+knn_one_vs_rest = OneVsRestClassifier(knn_classifier)
 dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-y_score_pre     = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-y_score_post    = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-y_score_dummy   = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_pre = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_post = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_knn = knn_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_dummy = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 
 cmap = plt.cm.get_cmap('tab10', num_classes+2)
 
 graphs_iter = zip(
-    ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "Dummy ROC"], 
-    [y_score_pre, y_score_post, y_score_dummy]
+    ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "kNN ROC", "Dummy ROC"],
+    [y_score_pre, y_score_post, y_score_knn, y_score_dummy]
 )
 
 # This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
 # (i.e. the graph shows the ROC for each language separately), or together (for comparing the
 # different models, using micro-average). It is used in the following for-loop
-draw_each_model_separate = True
+draw_each_model_separate = False
 
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
