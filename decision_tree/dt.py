@@ -36,11 +36,12 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 classes=[1,2,3,4,5,6,7,8]       # Replace this with the name of the languages
+classes_lang_names = ["Arabic", "English", "French", "German", "Hindi", "Mandarin", "Portuguese", "Spanish"]
 num_classes = len(classes)
 
 def showAndSave(filename, plt):
     import os
-    filename = os.path.dirname(__file__) + '\\images\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
+    filename = os.path.dirname(__file__) + '\\images2\\' + filename + '_' + str(datetime.now()).replace(':', '-').split('.')[0]
     plt.savefig("{}.png".format(filename), dpi=None, facecolor='w', edgecolor='w',
         orientation='portrait', format=None,
         transparent=False, bbox_inches=None, pad_inches=0.1,
@@ -90,7 +91,6 @@ def fresh_score_dict():
 strategy = 'most_frequent'
 dummy_classifier = DummyClassifier(strategy=strategy)
 
-
 ################# GETTING DATA #################
 
 # import dataset
@@ -103,6 +103,16 @@ label_data = data_set.iloc[:,-1]        # Just last column (the class label)
 from sklearn.utils import shuffle
 feature_data, label_data = shuffle(feature_data, label_data)
 
+## Polynomial Features, if set to 1, no change from input. Decision trees don't benefit
+## from higher polynomial features at all, but I wanted to see if any significant features
+## appeared, regardless
+poly_feature_num = 1
+pf = PolynomialFeatures(poly_feature_num)
+feature_data = pf.fit_transform(feature_data)
+feature_names = pf.get_feature_names_out(input_features=data_set.columns[:-1])
+
+feature_data, feature_test, label_data, label_test = train_test_split(feature_data, label_data, test_size=0.2)
+
 ################# HYPERPARAMETER OPTIONS #################
 # putting them all grouped together here so we don't have to dig through code later
 ### For DecisionTreeModel constructor parameters (https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html)
@@ -114,8 +124,7 @@ max_features = None         # Not sure how this parameter chooses the features u
 random_state = None         # Used in conjunction with `max_features`. Regardless of the 'splitter' value, features are always randomly permuted at each split. If the criteria for determining which feature to split on is identical for all, then this randomness determines. We can set to an int for deterministic behaviour for this. 
 max_leaf_nodes = None       # Tree will have no more than this number of leaf nodes total, best-first fashion. None = unliimited leaf nodes.
 class_weight = 'balanced'   # None (all output classes have equal weight) or 'balanced' (ensures the weights of the ouput classes is proportional to their frequency in the y list)
-ccp_alpha = 0.0             # Using default value for the moment (0.0). Complexity parameter used for Minimal Cost-Complexity Pruning. The subtree with the largest cost complexity that is smaller than ccp_alpha will be chosen. 
-poly_feature_num = 1
+ccp_alpha = 0.0             # Using default value for the moment (0.0). Complexity parameter used for Minimal Cost-Complexity Pruning. The subtree with the largest cost complexity that is smaller than ccp_alpha will be chosen.
 
 ################# HYPERPARAMETERS WE'RE CONSIDERING #################
 #### For Pre-Pruning Approach:
@@ -139,13 +148,6 @@ CV_ccp_alphas = CV_ccp_alphas[:-2]       # Need to remove last two values of the
 #       https://www.educative.io/edpresso/what-is-decision-tree-pruning-and-how-is-it-done
 ## post-pruning approach 
 #       https://scikit-learn.org/stable/auto_examples/tree/plot_cost_complexity_pruning.html
-
-## Polynomial Features, if set to 1, no change from input. Decision trees don't benefit
-## from higher polynomial features at all, but I wanted to see if any significant features
-## appeared, regardless
-pf = PolynomialFeatures(poly_feature_num)
-feature_data = pf.fit_transform(feature_data)
-feature_names = pf.get_feature_names_out(input_features=data_set.columns[:-1])
 
 # print("""\n
 #     PARAMETERS:\n
@@ -252,7 +254,7 @@ score_dict = fresh_score_dict()
 
 ################# EVALUATION, COMPARISON OF TREES #################
 
-# The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
+# # The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
 pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
         max_depth = 10,
         min_samples_leaf = 23,
@@ -262,52 +264,103 @@ pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
 
 # The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
 post_pruned_decision_tree_classifier = DecisionTreeClassifier(
-    ccp_alpha = 0.00396237028052095
+    ccp_alpha = 0.003176294191919192
 )
 
-# from sklearn.preprocessing import label_binarize
-# binarized_label = label_binarize(label_data, classes=classes)
+from sklearn.preprocessing import LabelBinarizer
+
+lb1 = LabelBinarizer()
+lb2 = LabelBinarizer()
+# y_test_binarize = lb.fit_transform(label_data)
+# y_test_original = lb.inverse_transform(label_test)
+
+binarized_label_data = lb1.fit_transform(label_data)
+binarized_label_test = lb2.fit_transform(label_test)
+# binarized_label_data = label_binarize(label_data, classes=classes)
+# binarized_label_test = label_binarize(label_test, classes=classes)
+
+
 
 # # Just considering one split now, we've already done the k-Fold work
 # Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
 
 # # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
-# prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
-# postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
-# dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
+prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
+postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
+dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-# y_score_pre     = prepruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
-# y_score_post    = postpruning_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
-# y_score_dummy   = dummy_one_vs_rest.fit(Xtrain, ytrain).predict_proba(Xtest)
+y_score_pre     = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_post    = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_dummy   = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 
-# cmap = plt.cm.get_cmap('tab10', num_classes)
+cmap = plt.cm.get_cmap('tab10', num_classes)
 
-# graphs_iter = zip(
-#     ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "Dummy ROC"], 
-#     [y_score_pre, y_score_post, y_score_dummy]
-# )
+graphs_iter = zip(
+    ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "Dummy ROC"], 
+    [y_score_pre, y_score_post, y_score_dummy]
+)
 
-# for graph_name, score in graphs_iter:
-#     fp = {}; tp = {}; auc_val = {}
-#     for i in range(num_classes):
-#         fp[i], tp[i], _ = roc_curve(ytest[:, i], score[:, i])
-#         auc_val[i] = auc(fp[i], tp[i])
-#     for i in range(num_classes):
-#         plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes[i], auc_val[i]))
-#     plt.xlabel('False Positive Rate')
-#     plt.ylabel('True Positive Rate')
-#     plt.title('ROC Graph for {}'.format(graph_name))
-#     plt.legend(loc="lower right")
-#     showAndSave(graph_name, plt)
+for graph_name, score in graphs_iter:
+    fp = {}; tp = {}; auc_val = {}
+    for i in range(num_classes):
+        fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
+        auc_val[i] = auc(fp[i], tp[i])
+    for i in range(num_classes):
+        plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC Graph for {}'.format(graph_name))
+    
+
+    delabelized_score = lb2.inverse_transform(score)
+    fp["micro"], tp["micro"], _ = roc_curve(binarized_label_test.ravel(), score.ravel())
+    auc_val["micro"] = auc(fp["micro"], tp["micro"])
+
+    # First aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fp[i] for i in range(num_classes)]))
+
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(num_classes):
+        mean_tpr += np.interp(all_fpr, fp[i], tp[i])
+
+    # Finally average it and compute AUC
+    mean_tpr /= num_classes
+
+    fp["macro"] = all_fpr
+    tp["macro"] = mean_tpr
+    auc_val["macro"] = auc(fp["macro"], tp["macro"])
+
+    plt.plot(
+        fp["micro"],
+        tp["micro"],
+        label="micro-average ROC curve (area = {0:0.2f})".format(auc_val["micro"]),
+        color="deeppink",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    plt.plot(
+        fp["macro"],
+        tp["macro"],
+        label="macro-average ROC curve (area = {0:0.2f})".format(auc_val["macro"]),
+        color="navy",
+        linestyle=":",
+        linewidth=4,
+    )
+
+    plt.legend(loc="lower right")
+
+    showAndSave(graph_name, plt)
 
 ################# CONFUSION MATRICES #################
 
 # # Have to create train/test data again, as last time, the classes were binarized
-X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
+# X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
 
-pre_pruned_decision_tree_classifier.fit(X_train, y_train)
-post_pruned_decision_tree_classifier.fit(X_train, y_train)
-dummy_classifier.fit(X_train, y_train)
+# pre_pruned_decision_tree_classifier.fit(feature_test, label_test)
+# post_pruned_decision_tree_classifier.fit(feature_test, label_test)
+# dummy_classifier.fit(feature_test, label_test)
 
 # cm_options = [
 #     ("Post-Pruned Decision Tree Confusion Matrix", post_pruned_decision_tree_classifier),
@@ -318,7 +371,7 @@ dummy_classifier.fit(X_train, y_train)
 #         classifier,
 #         X_test,
 #         y_test,
-#         display_labels=classes,
+#         display_labels=classes_lang_names,
 #         cmap=plt.cm.Blues,
 #         normalize='true',
 #     )
@@ -349,16 +402,16 @@ dummy_classifier.fit(X_train, y_train)
 ## just installing the Python module for Graphviz is not enough
 ## https://graphviz.org/download/
 
-from dtreeviz.trees import dtreeviz
+# from dtreeviz.trees import dtreeviz
 
-viz1 = dtreeviz(post_pruned_decision_tree_classifier,
-                feature_data,
-                label_data,
-                target_name="language",
-                feature_names=feature_names,
-                )
+# viz1 = dtreeviz(post_pruned_decision_tree_classifier,
+#                 feature_data,
+#                 label_data,
+#                 target_name="language",
+#                 feature_names=feature_names,
+#                 )
 
-viz1.save("./images/pre_pruned_decision_tree.svg")
+# viz1.save("./images/pre_pruned_decision_tree.svg")
 
 ## NOTE: This causes an error, and will not print the tree. Seems to be an issue with dtreeviz, 
 ## as this call is identical to the previous, but with a different tree used.
