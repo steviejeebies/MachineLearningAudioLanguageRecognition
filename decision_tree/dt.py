@@ -7,9 +7,6 @@
 ### this run, then just uncomment it. The only code that is commented-out because it will cause problems
 ### comes with a warning, you won't miss it.
 
-def funcHello():
-    print("Hello!")
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,6 +19,7 @@ from sklearn.multiclass import OneVsRestClassifier
 
 # Cross Validation / Evaluation
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.preprocessing import LabelBinarizer
@@ -107,6 +105,15 @@ def generateMicroMacroAverageROCGraph(true, predicted, fp, tp, cmap, cmap_start_
             linestyle=":",
             linewidth=3,
         )
+
+def print_scores(classifier, X, y, scoring, classifier_name):
+    print(classifier_name)
+    scores = cross_validate(classifier, X, y, cv=5, scoring=scoring)
+    print("\tACCURACY: {:.3f} (Std. Dev = {:.3f})".format(scores['test_accuracy'].mean(), scores['test_accuracy'].std()))
+    print("\tRECALL: {:.3f} (Std. Dev = {:.3f})".format(scores['test_recall'].mean(), scores['test_recall'].std()))
+    print("\tPRECISION: {:.3f} (Std. Dev = {:.3f})".format(scores['test_precision'].mean(), scores['test_precision'].std()))
+    print("\tF1: {:.3f} (Std. Dev = {:.3f})".format(scores['test_f1'].mean(), scores['test_f1'].std()))
+    return scores
 
 def fresh_score_dict():
     return {
@@ -266,11 +273,11 @@ for TEST_min_samples_leaf in CV_min_samples_leaf:
     score_dict['f1']['mean'].append(scores['test_f1'].mean())
     score_dict['f1']['std'].append(scores['test_f1'].std())
 
-    # # score_dict['auc']['mean'].append(scores['test_auc'].mean())
-    # # score_dict['auc']['std'].append(scores['test_auc'].std())
+    # score_dict['auc']['mean'].append(scores['test_auc'].mean())
+    # score_dict['auc']['std'].append(scores['test_auc'].std())
 
 # #### UNCOMMENT THE RELEVANT PARAMETER YOU'RE CHECKING THIS RUN
-saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
+# saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf')
 # saveCrossEvalF1Results(score_dict, CV_max_features, 'Max Features Used')
 # saveCrossEvalF1Results(score_dict, CV_max_depth, 'Max Depth of Tree')
 # saveCrossEvalF1Results(score_dict, CV_ccp_alphas, 'CCP Alphas Used For Pruning Tree')
@@ -279,166 +286,168 @@ saveCrossEvalF1Results(score_dict, CV_min_samples_leaf, 'Minimum Samples to Leaf
 ################# CROSS VALIDATION, COMBINED HYPERPARAMETERS #################
 ## Gives us the best value for all parameters, when combined.
 ## Base version of Decision Tree
-# dt_base = DecisionTreeClassifier()
+dt_base = DecisionTreeClassifier()
 
-# dt_parameter_grid = {
-#             'min_samples_leaf': CV_min_samples_leaf,
-#             'max_features': CV_max_features,
-#             'max_depth': CV_max_depth,
-#             # 'criterion': CV_criterion,    # little impact
-# }
+dt_parameter_grid = {
+            'min_samples_leaf': CV_min_samples_leaf,
+            'max_features': CV_max_features,
+            'max_depth': CV_max_depth,
+            # 'criterion': CV_criterion,    # little impact
+}
 
-# # Testing values for parameters as defined in dt_parameter_grid. This creates a new model
-# random = RandomizedSearchCV(estimator = dt_base, param_distributions = dt_parameter_grid, 
-#                                n_iter = 2500, 
-#                                cv = 5, 
-#                                verbose = 0, 
-#                                random_state = 1, 
-#                                n_jobs = -1      # run in parallel
-#                            )
+# Testing values for parameters as defined in dt_parameter_grid. This creates a new model
+random = RandomizedSearchCV(estimator = dt_base, param_distributions = dt_parameter_grid, 
+                               n_iter = 2500, 
+                               cv = 5, 
+                               verbose = 0, 
+                               random_state = 1, 
+                               n_jobs = -1      # run in parallel
+                           )
 
-# random.fit(feature_data, label_data)
+random.fit(feature_data, label_data)
 
-# # Get the best parameters produced
-# print(random.best_params_)
+# Get the best parameters produced
+print(random.best_params_)
 
 ################# EVALUATION, COMPARISON OF TREES #################
 
 # The following is the Decision Tree that uses the best parameters for pre-pruned trees, determined by a RandomizedSearchCV() run at 500 iterations:
-# pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
-#         max_depth = 11,
-#         min_samples_leaf = 19,
-#         max_features = 30,
-#         class_weight = 'balanced'
-#     )
+pre_pruned_decision_tree_classifier = DecisionTreeClassifier(
+        max_depth = 11,
+        min_samples_leaf = 19,
+        max_features = 30,
+        class_weight = 'balanced'
+    )
 
 # The following is the Decision Tree that has the optimal ccp_alpha value, according to cross validation
-# post_pruned_decision_tree_classifier = DecisionTreeClassifier(
-#     ccp_alpha = 0.003297820403168658
-# )
+post_pruned_decision_tree_classifier = DecisionTreeClassifier(
+    ccp_alpha = 0.003297820403168658
+)
 
-# binarized_label_data = LabelBinarizer().fit_transform(label_data)
-# binarized_label_test = LabelBinarizer().fit_transform(label_test)
+# kNN Classifier with finalized parameters:
+knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
+
+print_scores(dummy_classifier, feature_data, label_data, scoring, "Dummy Classifier")
+print_scores(knn_classifier, feature_data, label_data, scoring, "K Nearest Neighbours")
+print_scores(pre_pruned_decision_tree_classifier, feature_data, label_data, scoring, "Pre-Pruned Decision Tree")
+print_scores(post_pruned_decision_tree_classifier, feature_data, label_data, scoring, "Post-Pruned Decision Tree")
+
+binarized_label_data = LabelBinarizer().fit_transform(label_data)
+binarized_label_test = LabelBinarizer().fit_transform(label_test)
 
 # # Just considering one split now, we've already done the k-Fold work
-# Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label, test_size=0.2)
+Xtrain, Xtest, ytrain, ytest = train_test_split(feature_data, binarized_label_data, test_size=0.2)
 
-# # OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
-# prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
-# postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
-# knn_classifier = KNeighborsClassifier(n_neighbors=4, weights=gaussian)
-# knn_one_vs_rest = OneVsRestClassifier(knn_classifier)
-# dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
+# OneVsRestClassifier - necessary for detecting the TP/FP/AUC for each individual class
+prepruning_one_vs_rest = OneVsRestClassifier(pre_pruned_decision_tree_classifier)
+postpruning_one_vs_rest = OneVsRestClassifier(post_pruned_decision_tree_classifier)
+knn_one_vs_rest = OneVsRestClassifier(knn_classifier)
+dummy_one_vs_rest = OneVsRestClassifier(dummy_classifier)
 
-# y_score_pre = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-# y_score_post = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-# y_score_knn = knn_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
-# y_score_dummy = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_pre = prepruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_post = postpruning_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_knn = knn_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
+y_score_dummy = dummy_one_vs_rest.fit(feature_data, binarized_label_data).predict_proba(feature_test)
 
-# cmap = plt.cm.get_cmap('tab10', num_classes+2)
+cmap = plt.cm.get_cmap('tab10', num_classes+2)
 
-# graphs_iter = zip(
-#     ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "kNN ROC", "Dummy ROC"],
-#     [y_score_pre, y_score_post, y_score_knn, y_score_dummy]
-# )
+graphs_iter = zip(
+    ["Pre-Pruning Decision Tree ROC", "Post-Pruning Decision Tree ROC", "kNN ROC", "Dummy ROC"],
+    [y_score_pre, y_score_post, y_score_knn, y_score_dummy]
+)
 
-# # This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
-# # (i.e. the graph shows the ROC for each language separately), or together (for comparing the
-# # different models, using micro-average). It is used in the following for-loop
-# draw_each_model_separate = False
+# This boolean determines if you want to draw each model (Pre, Post, Dummy) as separate graphs
+# (i.e. the graph shows the ROC for each language separately), or together (for comparing the
+# different models, using micro-average). It is used in the following for-loop
+draw_each_model_separate = False
 
-# plt.xlabel('False Positive Rate')
-# plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
 
-# cmap_index = 0
+cmap_index = 0
 
-# for graph_name, score in graphs_iter:
-#     fp = {}; tp = {}; auc_val = {}
-#     for i in range(num_classes):
-#         fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
-#         auc_val[i] = auc(fp[i], tp[i])
+for graph_name, score in graphs_iter:
+    fp = {}; tp = {}; auc_val = {}
+    for i in range(num_classes):
+        fp[i], tp[i], _ = roc_curve(binarized_label_test[:, i], score[:, i])
+        auc_val[i] = auc(fp[i], tp[i])
 
-#     if draw_each_model_separate:
-#         for i in range(num_classes):
-#             plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
-#         plt.xlabel('False Positive Rate')
-#         plt.ylabel('True Positive Rate')
-#         plt.title('ROC Graph for {}'.format(graph_name))
-#         generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=num_classes)
-#         plt.legend(loc="lower right")
-#         showAndSave(graph_name, plt)
-#     else:
-#         generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=cmap_index, micro_only=True, label_name=graph_name)
-#         cmap_index = cmap_index + 1
+    if draw_each_model_separate:
+        for i in range(num_classes):
+            plt.plot(fp[i], tp[i], color=cmap(i), label='{0} (AUC = {1:0.2f})'.format(classes_lang_names[i], auc_val[i]))
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Graph for {}'.format(graph_name))
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=num_classes)
+        plt.legend(loc="lower right")
+        showAndSave(graph_name, plt)
+    else:
+        generateMicroMacroAverageROCGraph(binarized_label_test, score, fp, tp, cmap, cmap_start_index=cmap_index, micro_only=True, label_name=graph_name)
+        cmap_index = cmap_index + 1
 
-# if not draw_each_model_separate:
-#     plt.title('ROC Graph Evaluation')
-#     plt.legend(loc="lower right")
-#     showAndSave(graph_name, plt)
+if not draw_each_model_separate:
+    plt.title('ROC Graph Evaluation')
+    plt.legend(loc="lower right")
+    showAndSave(graph_name, plt)
 
 ################# CONFUSION MATRICES #################
 
-# Have to create train/test data again, as last time, the classes were binarized
-# X_train, X_test, y_train, y_test = train_test_split(feature_data, label_data, test_size=0.2)
+pre_pruned_decision_tree_classifier.fit(feature_data, label_data)
+post_pruned_decision_tree_classifier.fit(feature_data, label_data)
+knn_classifier.fit(feature_data, label_data)
+dummy_classifier.fit(feature_data, label_data)
 
-# pre_pruned_decision_tree_classifier.fit(feature_data, label_data)
-# post_pruned_decision_tree_classifier.fit(feature_data, label_data)
-# knn_classifier.fit(feature_data, label_data)
-# dummy_classifier.fit(feature_data, label_data)
-
-# cm_options = [
-#     ("Post-Pruned Decision Tree Confusion Matrix", post_pruned_decision_tree_classifier),
-#     ("Pre-Pruned Decision Tree Confusion Matrix", pre_pruned_decision_tree_classifier),
-#     ("KNN Confusion Matrix", knn_classifier),
-#     ("Dummy Classifier Confusion Matrix", dummy_classifier),
-# ]
-# for title, classifier in cm_options:
-#     disp = ConfusionMatrixDisplay.from_estimator(
-#         classifier,
-#         feature_test,
-#         label_test,
-#         display_labels=classes_lang_names,
-#         cmap=plt.cm.Blues,
-#         normalize='true',
-#     )
-#     disp.ax_.set_title(title)
-#     showAndSave(title, plt)
-
-
+cm_options = [
+    ("Post-Pruned Decision Tree Confusion Matrix", post_pruned_decision_tree_classifier),
+    ("Pre-Pruned Decision Tree Confusion Matrix", pre_pruned_decision_tree_classifier),
+    ("KNN Confusion Matrix", knn_classifier),
+    ("Dummy Classifier Confusion Matrix", dummy_classifier),
+]
+for title, classifier in cm_options:
+    disp = ConfusionMatrixDisplay.from_estimator(
+        classifier,
+        feature_test,
+        label_test,
+        display_labels=classes_lang_names,
+        cmap=plt.cm.Blues,
+        normalize='true',
+    )
+    disp.ax_.set_title(title)
+    showAndSave(title, plt)
 
 ################# FEATURE IMPORTANCE #################
 
-# print('FOR PRE-PRUNED TREE')
-# ## This code was borrowed from https://towardsdatascience.com/decision-tree-algorithm-for-multiclass-problems-using-python-6b0ec1183bf5
-# pre_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
-# feat_imp_dict = dict(zip(feature_names, pre_pruned_decision_tree_classifier.feature_importances_))
-# feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
-# feat_imp.rename(columns = {0:'FeatureImportance'}, inplace = True)
-# print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
+print('FOR PRE-PRUNED TREE')
+## This code was borrowed from https://towardsdatascience.com/decision-tree-algorithm-for-multiclass-problems-using-python-6b0ec1183bf5
+pre_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
+feat_imp_dict = dict(zip(feature_names, pre_pruned_decision_tree_classifier.feature_importances_))
+feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
+feat_imp.rename(columns = {0:'FeatureImportance'}, inplace = True)
+print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
 
-# print('FOR POST-PRUNED TREE')
-# post_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
-# feat_imp_dict = dict(zip(feature_names, post_pruned_decision_tree_classifier.feature_importances_))
-# feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
-# feat_imp.rename(columns = {0:'FeatureImportance'}, inplace=True)
-# print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
+print('FOR POST-PRUNED TREE')
+post_pruned_decision_tree_classifier.tree_.compute_feature_importances(normalize=True)
+feat_imp_dict = dict(zip(feature_names, post_pruned_decision_tree_classifier.feature_importances_))
+feat_imp = pd.DataFrame.from_dict(feat_imp_dict, orient='index')
+feat_imp.rename(columns = {0:'FeatureImportance'}, inplace=True)
+print(feat_imp.sort_values(by=['FeatureImportance'], ascending=False).head())
 
 ################# GRAPHING DECISION GRAPH #################
 ## The following requires that Graphviz is installed on your machine and added to the System PATH, 
 ## just installing the Python module for Graphviz is not enough
 ## https://graphviz.org/download/
 
-# from dtreeviz.trees import dtreeviz
+from dtreeviz.trees import dtreeviz
 
-# viz2 = dtreeviz(post_pruned_decision_tree_classifier,
-#                 feature_data,
-#                 label_data,
-#                 target_name="language",
-#                 feature_names=feature_names,
-#                 class_names=classes_lang_names
-#                 )
+viz2 = dtreeviz(post_pruned_decision_tree_classifier,
+                feature_data,
+                label_data,
+                target_name="language",
+                feature_names=feature_names,
+                class_names=classes_lang_names
+                )
 
-# viz2.save("./images/post_pruned_decision_tree.svg")
+viz2.save("./images/post_pruned_decision_tree.svg")
 
 # ## NOTE: This causes an error, and will not print the tree. Seems to be an issue with dtreeviz, 
 # ## as this call is identical to the previous, but with a different tree used.
